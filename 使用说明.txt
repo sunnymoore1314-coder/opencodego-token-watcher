@@ -1,6 +1,7 @@
 OpenCode 用量监测
 
 1. 双击“OpenCode用量监测.exe”即可运行，不用安装 Python。
+   GitHub 发布附件名为 opencodego-token-watcher.exe，下载后同样直接双击运行。
 2. 首次打开会自动探测 OpenCode 数据库。找到后点“开始使用”。
 3. 找不到时可手动选择 opencode.db，或点“跳过（稍后设置）”。
    默认数据库位置：%USERPROFILE%\.local\share\opencode\opencode.db

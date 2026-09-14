@@ -8,10 +8,10 @@ Windows 桌面悬浮小窗：实时监测本机 **OpenCode / OpenChamber** 的 t
 
 **方式一：直接运行 exe（推荐，无需装 Python）**
 
-到 [Releases 下载页面](https://github.com/sunnymoore1314-coder/opencodego-token-watcher/releases) 下载 `OpenCode用量监测.exe`，双击启动。请使用 Windows 64 位系统。
+到 [Releases 下载页面](https://github.com/sunnymoore1314-coder/opencodego-token-watcher/releases) 下载 `opencodego-token-watcher.exe`，双击启动。请使用 Windows 64 位系统。GitHub 附件使用英文名，本地打包产物名为 `OpenCode用量监测.exe`，两者内容相同。
 
 ```
-OpenCode用量监测.exe
+opencodego-token-watcher.exe
 ```
 
 首次运行会弹"首次使用"向导，自动探测本机 opencode.db（OpenChamber 与 opencode CLI 共用），确认即可使用；找不到时可手动指定路径。
