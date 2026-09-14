@@ -1,0 +1,34 @@
+# Local environments, build tools and binaries (exe is distributed via Releases).
+.build-venv/
+.venv/
+venv/
+build/
+dist/
+*.exe
+
+# Python and editor caches.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.playwright-cli/
+.zcode/
+.codex/
+.agents/
+.idea/
+.vscode/
+
+# Personal configuration, usage data, diagnostics and screenshots.
+config.json
+monitor_cache.json
+monitor_cloud.json
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+*.tmp
+shot_*.png
+devlogs/
+
+# OS files.
+Thumbs.db
+Desktop.ini
