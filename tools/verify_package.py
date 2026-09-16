@@ -56,11 +56,11 @@ def main() -> None:
     stats = next(iter(data["by_day"].values()))
     if stats["input"] != 100000 or stats["output"] != 24000 or stats["cache_read"] != 900000:
         raise RuntimeError("打包后的数据库读取结果不符")
-    report = {"exe": str(exe), "standalone": str(copied), "first_run": "PASS",
+    report = {"version": "0.3.1", "exe": str(exe), "standalone": str(copied), "first_run": "PASS",
               "configured_run": "PASS", "exit_code": code,
               "python_on_path": False, "cache_stats": stats,
               "limitations": "本机安装有 Python；不等同于未装 Python 的独立机器验收"}
-    (project / "devlogs" / "2026-09-14-package-check.json").write_text(
+    (project / "devlogs" / "2026-09-16-package-check.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print("PACKAGE: PASS", flush=True)
 

@@ -24,6 +24,8 @@ FONT_LABEL = ("Segoe UI", 9)
 FONT_SMALL = ("Segoe UI", 8)
 W = 250
 H = 182
+MIN_W, MIN_H = 180, 120
+MAX_W, MAX_H = 600, 560
 RADIUS = 18                   # 卡片圆角（Apple 大圆角）
 PAD = 16                      # 内容左右边距
 WEEKDAYS = "一二三四五六日"
@@ -124,10 +126,10 @@ class UsageWindow(tk.Tk):
         super().__init__()
         cfg = config.load_config()
         self.title("OpenCodeGO Token Watcher")
-        # 尺寸：默认 250x182，支持无极缩放（config 记忆，clamp 到 180x120~600x400）
+        # 尺寸：保留用户宽度；高度会在 render() 中按全部内容自动展开。
         size = cfg.get("window_size")
-        self._sw = min(600, max(180, int(size[0]) if size else 250))
-        self._sh = min(400, max(120, int(size[1]) if size else 182))
+        self._sw = min(MAX_W, max(MIN_W, int(size[0]) if size else W))
+        self._sh = min(MAX_H, max(MIN_H, int(size[1]) if size else H))
         self.geometry(f"{self._sw}x{self._sh}")
         self.configure(bg=KEY)
         self.attributes("-topmost", cfg.get("topmost_on_start", True))  # 置顶（设置窗可改）
@@ -423,7 +425,8 @@ class UsageWindow(tk.Tk):
         sx = self._sw / 250
         n_rows = sum(f in FIELD_LABELS for f in self._display_fields)
         show_hr = "hit_rate" in self._display_fields
-        sc = min(sx, 400 / (66 + n_rows * 28 + 60))
+        # 字号只随宽度变化；纵向空间不足时扩高窗口，不再压缩 UI。
+        sc = sx
         fl = max(7, round(9 * sc))              # 标签字号（整数，Tk 拒绝浮点）
         f_num = ("Segoe UI", fl + 1, "normal")
         f_label = ("Segoe UI", fl, "normal")
@@ -443,8 +446,8 @@ class UsageWindow(tk.Tk):
         hint_h = text_height(hint_text) if hint_text else 0
         footer_h = 12 + sync_h + (4 + hint_h if hint_text else 0) + 14
         body_h = 66 + max(0, n_rows - 1) * 28 + (27 if show_hr else 12)
-        sy = min(sx, max(0.1, (400 - footer_h) / body_h))
-        h_req = min(400, max(120, round(body_h * sy + footer_h)))
+        sy = sx
+        h_req = min(MAX_H, max(MIN_H, round(body_h * sy + footer_h)))
         if self._sh != h_req:
             self._sh = h_req
             self.geometry(f"{self._sw}x{self._sh}")
@@ -587,19 +590,19 @@ class UsageWindow(tk.Tk):
             right = x + self._sw
             bottom = y + self._sh
             if self._mode == "resize_se":      # 锚左上
-                self._sw = min(600, max(180, px - x))
-                self._sh = min(400, max(120, py - y))
+                self._sw = min(MAX_W, max(MIN_W, px - x))
+                self._sh = min(MAX_H, max(MIN_H, py - y))
             elif self._mode == "resize_sw":    # 锚右上
-                self._sw = min(600, max(180, right - px))
-                self._sh = min(400, max(120, py - y))
+                self._sw = min(MAX_W, max(MIN_W, right - px))
+                self._sh = min(MAX_H, max(MIN_H, py - y))
                 x = right - self._sw
             elif self._mode == "resize_ne":    # 锚左下
-                self._sw = min(600, max(180, px - x))
-                self._sh = min(400, max(120, bottom - py))
+                self._sw = min(MAX_W, max(MIN_W, px - x))
+                self._sh = min(MAX_H, max(MIN_H, bottom - py))
                 y = bottom - self._sh
             elif self._mode == "resize_nw":    # 锚右下
-                self._sw = min(600, max(180, right - px))
-                self._sh = min(400, max(120, bottom - py))
+                self._sw = min(MAX_W, max(MIN_W, right - px))
+                self._sh = min(MAX_H, max(MIN_H, bottom - py))
                 x, y = right - self._sw, bottom - self._sh
             self.geometry(f"{self._sw}x{self._sh}+{x}+{y}")
             self.canvas.config(width=self._sw, height=self._sh)
@@ -625,7 +628,7 @@ class UsageWindow(tk.Tk):
 
     def set_display_fields(self, fields: list) -> None:
         """设置窗保存后调用：更新显示内容（输入/输出/命中率/推理/成本）并重绘。"""
-        self._display_fields = list(fields) or ["input", "output", "hit_rate"]
+        self._display_fields = list(fields) or list(DEFAULT_FIELDS)
         self.render()
 
     def set_click_through(self, on: bool) -> None:

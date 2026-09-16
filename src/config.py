@@ -80,7 +80,7 @@ def load_config() -> dict:
                 and all(type(v) is int for v in value)):
             cfg[key] = None
         elif key == "window_size":
-            cfg[key] = [min(600, max(180, value[0])), min(400, max(120, value[1]))]
+            cfg[key] = [min(600, max(180, value[0])), min(560, max(120, value[1]))]
     fields = cfg.get("display_fields")
     allowed = ("input_total", "output", "hit_rate", "cost", "input_fresh", "cache_read",
                "cache_write", "reasoning", "total", "requests")

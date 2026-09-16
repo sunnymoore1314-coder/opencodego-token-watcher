@@ -1,6 +1,6 @@
-"""设置窗：macOS System Settings 风格（分组卡片 + 整页滚动 + 全自绘控件）。
+"""设置窗：macOS System Settings 风格（双栏总览 + 全自绘控件）。
 
-节：外观 / 行为 / 显示内容 / 官网同步 / 关于 / 高级设置（折叠，含连接）。
+节：外观 / 行为 / 连接 / 显示内容 / 官网同步 / 关于。
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from src import chrome_cdp, config, db_reader, theme
 from src.opencode_cloud import (CloudError, fetch_workspace_id, month_costs,
                                 start_oauth_login)
 
-W, H = 400, 720
+W, H = 780, 680
 KEY = theme.KEY
 FONT_TITLE = ("Segoe UI", 13, "bold")
 FONT_SECTION = ("Segoe UI", 9, "bold")
@@ -307,11 +307,15 @@ class AlphaSlider(tk.Canvas):
 
 # ---------- 设置窗主体 ----------
 class Settings(tk.Toplevel):
-    """macOS System Settings 风格设置窗：分组卡片 + 整页滚动。"""
+    """macOS System Settings 风格设置窗：全部常用项双栏直显。"""
 
     GROUP_X = 16
-    GROUP_W = W - 32          # 卡片宽 368
-    ROW_H = 44                # 组内行高（macOS 标准）
+    GROUP_GAP = 16
+    GROUP_W = (W - 32 - GROUP_GAP) // 2
+    RIGHT_X = GROUP_X + GROUP_W + GROUP_GAP
+    ROW_H = 36
+    SECTION_HEAD = 30
+    SECTION_GAP = 14
     ROW_LABEL_X = GROUP_X + 16
 
     def __init__(self, master, on_saved=None):
@@ -343,7 +347,6 @@ class Settings(tk.Toplevel):
         self.var_ws = tk.StringVar(value=self._cfg.get("cloud_workspace_id") or "")
         self.var_cookie = tk.StringVar(value=self._cfg.get("cloud_cookie") or "")
         self.var_cloud_on = tk.BooleanVar(value=bool(self._cfg.get("cloud_enabled", False)))
-        self.var_adv = tk.BooleanVar(value=False)  # 高级设置折叠
         self.var_fields = {f: tk.BooleanVar(value=f in self._cfg.get(
             "display_fields", ["input_total", "output", "hit_rate", "cost"]))
             for f in ("input_total", "output", "hit_rate", "cost",
@@ -368,19 +371,9 @@ class Settings(tk.Toplevel):
         self._lbl_close.place(x=W - 34, y=14, width=20)
         self._lbl_close.bind("<Button-1>", lambda e: self.destroy())
         self.canvas.create_line(18, 40, W - 18, 40, fill=self.C["group_line"], width=1)
-        # 滚动区（y 44 ~ 保存按钮上方）
-        self.scroll = tk.Canvas(self, bg=self.C["win_bg"], highlightthickness=0, bd=0)
-        self.scroll.place(x=0, y=44, width=W, height=H - 44 - 62)
-        self.content = tk.Frame(self.scroll, bg=self.C["win_bg"])
-        self._win = self.scroll.create_window((0, 0), window=self.content, anchor="nw")
-        self.content.bind("<Configure>",
-                          lambda e: self.scroll.configure(scrollregion=self.scroll.bbox("all")))
-        self.scroll.bind("<MouseWheel>", self._on_scroll)
-        # 子控件（卡片/输入框等）会吃掉滚轮事件 → 全局绑定
-        self.bind_all("<MouseWheel>", self._on_scroll)
-        self.bind_all("<Button-4>", self._on_scroll)   # Linux 上滚
-        self.bind_all("<Button-5>", self._on_scroll)   # Linux 下滚
-        self.scroll.configure(width=W)  # 固定内容宽度
+        # 双栏内容区：所有分区一次显示，不创建纵向滚动视口。
+        self.content = tk.Frame(self.canvas, bg=self.C["win_bg"])
+        self.content.place(x=0, y=44, width=W, height=H - 44 - 62)
         self._build_groups()
         # 保存/取消（固定底部）
         self.btn_save = AppleButton(self, "保存", self._save, self.C,
@@ -391,16 +384,16 @@ class Settings(tk.Toplevel):
                                       width=62, height=28)
         self.btn_cancel.place(x=W - 18 - 62 - 70, y=H - 48)
 
-    def _group(self, y, title):
+    def _group(self, x, y, title):
         """在 content 中建一组卡片，返回 (card_canvas, 行起点 y, 卡片底 y)。"""
         c = self.C
         card = tk.Canvas(self.content, width=self.GROUP_W, height=40,
                          bg=self.C["win_bg"], highlightthickness=0, bd=0)
-        card.place(x=self.GROUP_X, y=y + 26)
+        card.place(x=x, y=y + 22)
         _round_rect(card, 1, 1, self.GROUP_W - 1, 39, 10,
                     fill=c["group"], outline=c["group_line"], width=1)
         tk.Label(self.content, text=title, font=FONT_SECTION, bg=self.C["win_bg"],
-                 fg=c["label"]).place(x=self.ROW_LABEL_X, y=y)
+                 fg=c["label"]).place(x=x + 16, y=y)
         return card
 
     def _row_line(self, card, y):
@@ -418,12 +411,14 @@ class Settings(tk.Toplevel):
 
     def _build_groups(self):
         c = self.C
+        rh = self.ROW_H
+        head, gap = self.SECTION_HEAD, self.SECTION_GAP
+        left_x, right_x = self.GROUP_X, self.RIGHT_X
         y = 10
 
-        # ---- 外观 ----
-        g = self._group(y, "外观")
-        rh = self.ROW_H
-        y += 40
+        # ---- 左栏：外观 ----
+        g = self._group(left_x, y, "外观")
+        y += head
         for i, (val, text) in enumerate((("system", "跟随系统"),
                                          ("light", "浅色"), ("dark", "深色"))):
             r = AppleControl(g, text, self.var_theme, self.C, FONT_LABEL,
@@ -446,11 +441,11 @@ class Settings(tk.Toplevel):
         g.configure(height=rh * 2)
         _round_rect(g, 1, 1, self.GROUP_W - 1, rh * 2 - 1, 10,
                     fill=c["group"], outline=c["group_line"], width=1)
-        y += rh * 2 + 26
+        y += rh * 2 + gap
 
-        # ---- 行为 ----
-        g = self._group(y, "行为")
-        y += 40
+        # ---- 左栏：行为 ----
+        g = self._group(left_x, y, "行为")
+        y += head
         self._label(g, 16, 12, "刷新间隔", color=c["label"])
         self.btn_minus = AppleButton(g, "−", lambda: self._step_refresh(-1), self.C,
                                      width=28, height=24)
@@ -473,15 +468,47 @@ class Settings(tk.Toplevel):
                                          ("鼠标穿透（Ctrl+Alt+Shift+T 恢复）", self.var_click))):
             yrow = (i + 2) * rh
             self._row_line(g, yrow)
-            self._check(g, 16, yrow + 10, text, var).place(x=16, y=yrow + 10)
+            self._check(g, 16, yrow + 10, text, var,
+                        w=self.GROUP_W - 32).place(x=16, y=yrow + 10)
         g.configure(height=rh * 6)
         _round_rect(g, 1, 1, self.GROUP_W - 1, rh * 6 - 1, 10,
                     fill=c["group"], outline=c["group_line"], width=1)
-        y += rh * 6 + 26
+        y += rh * 6 + gap
 
-        # ---- 显示内容 ----
-        g = self._group(y, "显示内容")
-        y += 40
+        # ---- 左栏：连接（直接显示，不再折叠/滚动） ----
+        g = self._group(left_x, y, "连接")
+        y += head
+        self._label(g, 16, 10, "opencode.db 路径", color=c["label"])
+        self._help_db = tk.Label(g, text="ⓘ", font=FONT_SMALL,
+                                 bg=c["group"], fg=c["label"], cursor="hand2")
+        self._help_db.place(x=150, y=10)
+        self._help_db.bind("<Button-1>",
+                           lambda e: self._show_help(HELP_TEXT, "关于 opencode.db"))
+        self.entry = AppleEntry(g, self.var_path, self.C, width=self.GROUP_W - 32)
+        self.entry.place(x=16, y=rh + 4)
+        self.btn_browse = AppleButton(g, "浏览…", self._browse, self.C,
+                                      width=56, height=24)
+        self.btn_browse.place(x=16, y=rh * 2 + 6)
+        self.btn_probe = AppleButton(g, "探测", self._probe, self.C,
+                                     width=56, height=24)
+        self.btn_probe.place(x=78, y=rh * 2 + 6)
+        self.btn_test = AppleButton(g, "测试读取", self._test_read, self.C,
+                                    width=78, height=24)
+        self.btn_test.place(x=140, y=rh * 2 + 6)
+        self.lbl_probe = tk.Label(g, text="", font=FONT_SMALL,
+                                  bg=c["group"], fg=c["status"], anchor="w")
+        self.lbl_probe.place(x=224, y=rh * 2 + 9, width=self.GROUP_W - 240)
+        g.configure(height=rh * 3)
+        _round_rect(g, 1, 1, self.GROUP_W - 1, rh * 3 - 1, 10,
+                    fill=c["group"], outline=c["group_line"], width=1)
+        y += rh * 3 + gap
+        left_bottom = y
+
+        # ---- 右栏：显示内容 ----
+        y = 10
+        g = self._group(right_x, y, "显示内容")
+        y += head
+
         fields = (("input_total", "输入（总）"), ("output", "输出"),
                   ("hit_rate", "命中率"), ("cost", "费用（$）"),
                   ("input_fresh", "新鲜输入"), ("cache_read", "缓存读"),
@@ -494,11 +521,11 @@ class Settings(tk.Toplevel):
         g.configure(height=rh * 5)
         _round_rect(g, 1, 1, self.GROUP_W - 1, rh * 5 - 1, 10,
                     fill=c["group"], outline=c["group_line"], width=1)
-        y += rh * 5 + 26
+        y += rh * 5 + gap
 
-        # ---- 官网同步（label 行 + entry 全宽横向滚动，不溢出） ----
-        g = self._group(y, "官网同步")
-        y += 40
+        # ---- 右栏：官网同步 ----
+        g = self._group(right_x, y, "官网同步")
+        y += head
         self._label(g, 16, 12, "Workspace ID", color=c["label"])
         self.entry_ws = AppleEntry(g, self.var_ws, self.C,
                                    width=self.GROUP_W - 32)  # 全宽适配卡片
@@ -528,87 +555,24 @@ class Settings(tk.Toplevel):
         g.configure(height=rh * 6)
         _round_rect(g, 1, 1, self.GROUP_W - 1, rh * 6 - 1, 10,
                     fill=c["group"], outline=c["group_line"], width=1)
-        y += rh * 6 + 26
+        y += rh * 6 + gap
 
-        # ---- 关于 ----
-        g = self._group(y, "关于")
-        y += 40
-        self._label(g, 16, 12, "版本 0.3", color=c["label"])
+        # ---- 右栏：关于 ----
+        g = self._group(right_x, y, "关于")
+        y += head
+        self._label(g, 16, 10, "版本 0.3.1", color=c["label"])
         self.btn_dir = AppleButton(g, "打开数据目录", self._open_dir, self.C,
                                    width=110, height=24)
         self.btn_dir.place(x=self.GROUP_W - 16 - 110, y=10)
         g.configure(height=rh)
         _round_rect(g, 1, 1, self.GROUP_W - 1, rh - 1, 10,
                     fill=c["group"], outline=c["group_line"], width=1)
-        y += rh + 26
+        y += rh + gap
+        right_bottom = y
 
-        # ---- 高级设置（折叠，默认收起） ----
-        self._content_base = y          # 高级组标题前的基线高度
-        self.adv_card = self._group(y, "")
-        self.adv_h = rh * 4 + 6
-        self._label(self.adv_card, 16, rh + 8, "opencode.db 路径", color=c["label"])
-        self._help_db = tk.Label(self.adv_card, text="ⓘ", font=FONT_SMALL,
-                                 bg=c["group"], fg=c["label"], cursor="hand2")
-        self._help_db.place(x=150, y=rh + 10)
-        self._help_db.bind("<Button-1>",
-                           lambda e: self._show_help(HELP_TEXT, "关于 opencode.db"))
-        self.entry = AppleEntry(self.adv_card, self.var_path, self.C, width=230)
-        self.btn_browse = AppleButton(self.adv_card, "浏览…", self._browse, self.C,
-                                      width=56, height=24)
-        self.btn_probe = AppleButton(self.adv_card, "探测", self._probe, self.C,
-                                     width=56, height=24)
-        self.btn_test = AppleButton(self.adv_card, "测试读取", self._test_read, self.C,
-                                    width=78, height=24)
-        self.lbl_probe = tk.Label(self.adv_card, text="", font=FONT_SMALL,
-                                  bg=c["group"], fg=c["status"])
-        self._set_adv(False)
-
-        # content 用 place 布局不算入请求尺寸（1x1）→ 显式设置宽度与总高度
-        self.content.configure(width=W, height=self._content_base + self.ROW_H + 12)
-        self.scroll.configure(scrollregion=(0, 0, W, self._content_base + self.ROW_H + 12))
+        # 供回归测试确认两栏都落在固定内容区内。
+        self._layout_bottoms = (left_bottom, right_bottom)
         self.content.update_idletasks()
-
-    def _set_adv(self, show):
-        """高级设置折叠/展开。标题行始终可见，内容展开时才显示。"""
-        c = self.C
-        self.adv_card.delete("all")
-        arrow = "▾" if show else "▸"
-        self.adv_card.create_text(16, 22, text=arrow, font=FONT_LABEL,
-                                  fill=c["label"], tags="adv_toggle")
-        self.adv_card.create_text(30, 22, text="高级设置", font=FONT_SECTION,
-                                  fill=c["label"], tags="adv_toggle")
-        self.adv_card.tag_bind("adv_toggle", "<Button-1>",
-                               lambda e: self._toggle_adv())
-        self.adv_card.configure(height=self.adv_h if show else self.ROW_H)
-        _round_rect(self.adv_card, 1, 1, self.GROUP_W - 1,
-                    self.adv_card.winfo_reqheight() - 1, 10,
-                    fill=c["group"], outline=c["group_line"], width=1)
-        if show:
-            self.entry.place(x=16, y=self.ROW_H + 4)
-            self.btn_browse.place(x=250, y=self.ROW_H + 5)
-            self.btn_probe.place(x=310, y=self.ROW_H + 5)
-            self.btn_test.place(x=16, y=self.ROW_H * 2 + 5)
-            self.lbl_probe.place(x=102, y=self.ROW_H * 2 + 9)
-        else:
-            for wdg in (self.entry, self.btn_browse, self.btn_probe,
-                        self.btn_test, self.lbl_probe):
-                wdg.place_forget()
-        # 内容总高 = 基线 + 高级区实际高度 → 滚动区可到底
-        total = self._content_base + (self.adv_h if show else self.ROW_H) + 12
-        self.content.configure(height=total)
-        self.scroll.configure(scrollregion=(0, 0, W, total))
-        self.content.update_idletasks()
-
-    def _toggle_adv(self):
-        self._set_adv(not self.var_adv.get())
-        self.var_adv.set(not self.var_adv.get())
-
-    # ---------- 滚动 ----------
-    def _on_scroll(self, e):
-        delta = getattr(e, "delta", 0)
-        if delta == 0:  # Button-4/5
-            delta = 120 if e.num == 4 else -120
-        self.scroll.yview_scroll(-1 if delta > 0 else 1, "units")
 
     # ---------- 外观/行为 ----------
     def _preview_alpha(self, value):
